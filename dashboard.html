@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Mie Ayam Financial</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  
+  <!-- Navigation Bar -->
+  <nav class="bg-green-600 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center space-x-3">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+          </svg>
+          <span class="font-bold text-xl">Dashboard</span>
+        </div>
+        <div class="flex items-center space-x-4">
+          <span id="userName" class="text-sm hidden sm:inline"></span>
+          <button onclick="Auth.logout()" class="bg-green-700 hover:bg-green-800 px-4 py-2 rounded-lg text-sm font-medium transition">
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <a href="income.html" class="bg-green-600 hover:bg-green-700 text-white rounded-xl p-6 flex items-center justify-between shadow-lg transition transform hover:scale-105">
+        <div>
+          <h3 class="font-semibold text-lg">Catat Pemasukan</h3>
+          <p class="text-green-100 text-sm mt-1">Rekap harian cash & QRIS</p>
+        </div>
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+      </a>
+      
+      <a href="expense.html" class="bg-red-500 hover:bg-red-600 text-white rounded-xl p-6 flex items-center justify-between shadow-lg transition transform hover:scale-105">
+        <div>
+          <h3 class="font-semibold text-lg">Catat Pengeluaran</h3>
+          <p class="text-red-100 text-sm mt-1">Belanja operasional</p>
+        </div>
+        <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+        </svg>
+      </a>
+    </div>
+
+    <!-- Period Tabs -->
+    <div class="bg-white rounded-xl shadow-lg mb-6 overflow-hidden">
+      <div class="flex overflow-x-auto">
+        <button class="period-tab active flex-1 min-w-max px-6 py-4 font-medium text-sm transition" data-period="today">
+          Hari Ini
+        </button>
+        <button class="period-tab flex-1 min-w-max px-6 py-4 font-medium text-sm transition" data-period="week">
+          7 Hari Terakhir
+        </button>
+        <button class="period-tab flex-1 min-w-max px-6 py-4 font-medium text-sm transition" data-period="month">
+          Bulan Ini
+        </button>
+        <button class="period-tab flex-1 min-w-max px-6 py-4 font-medium text-sm transition" data-period="year">
+          Tahun Ini
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      
+      <!-- Income Card -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-gray-600 text-sm font-medium">Total Pemasukan</h3>
+          <div class="bg-green-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+            </svg>
+          </div>
+        </div>
+        <p id="incomeValue" class="text-3xl font-bold text-gray-800">Rp 0</p>
+        <p class="text-xs text-gray-500 mt-2">Cash + QRIS</p>
+      </div>
+
+      <!-- Expense Card -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-gray-600 text-sm font-medium">Total Pengeluaran</h3>
+          <div class="bg-red-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>
+            </svg>
+          </div>
+        </div>
+        <p id="expenseValue" class="text-3xl font-bold text-gray-800">Rp 0</p>
+        <p class="text-xs text-gray-500 mt-2">Operasional</p>
+      </div>
+
+      <!-- Profit Card -->
+      <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-gray-600 text-sm font-medium">Laba Bersih</h3>
+          <div class="bg-blue-100 p-2 rounded-lg">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+        </div>
+        <p id="profitValue" class="text-3xl font-bold text-gray-800">Rp 0</p>
+        <p class="text-xs text-gray-500 mt-2">Pemasukan - Pengeluaran</p>
+      </div>
+    </div>
+
+    <!-- Info Box -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+      <p class="font-semibold text-blue-800 mb-2">💡 Tips:</p>
+      <ul class="list-disc list-inside space-y-1 text-gray-700">
+        <li>Data diperbarui secara real-time dari Google Sheets</li>
+        <li>Klik tab periode untuk melihat ringkasan berbeda</li>
+        <li>Gunakan tombol "Catat Pemasukan/Pengeluaran" untuk input data</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+      <span class="text-gray-700 font-medium">Memuat data...</span>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

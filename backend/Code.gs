@@ -1,0 +1,411 @@
+/**
+ * Mie Ayam Financial Recording - Google Apps Script Backend API
+ * 
+ * This script serves as a REST API endpoint for the financial recording web application.
+ * It handles authentication, data retrieval, and data insertion for income and expense logging.
+ * 
+ * DEPLOYMENT INSTRUCTIONS:
+ * 1. Open Google Sheets: https://docs.google.com/spreadsheets/d/13RxW3a6eqGzNFSExhcXbb8l0p1waoqCGUW7dkhB2fRs/edit
+ * 2. Go to Extensions → Apps Script
+ * 3. Delete any default code
+ * 4. Copy-paste this entire file
+ * 5. Click Deploy → New deployment
+ * 6. Select "Web app" type
+ * 7. Execute as: Me
+ * 8. Who has access: Anyone
+ * 9. Click Deploy and copy the Web App URL
+ */
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const SPREADSHEET_ID = '13RxW3a6eqGzNFSExhcXbb8l0p1waoqCGUW7dkhB2fRs';
+
+const SHEET_NAMES = {
+  INCOME: 'Pemasukan_Harian',
+  EXPENSE: 'Pengeluaran',
+  MASTER_ITEMS: 'Master_Barang',
+  USERS: 'Users',
+  DASHBOARD: 'Dashboard'
+};
+
+// ============================================================================
+// MAIN HTTP HANDLERS
+// ============================================================================
+
+/**
+ * Handles HTTP GET requests
+ * Routes: /login, /master-items, /dashboard
+ */
+function doGet(e) {
+  try {
+    const action = e.parameter.action;
+    
+    if (!action) {
+      return createResponse(false, 'Action parameter is required');
+    }
+    
+    switch(action) {
+      case 'login':
+        return handleLogin(e.parameter);
+      
+      case 'master-items':
+        return handleGetMasterItems();
+      
+      case 'dashboard':
+        return handleGetDashboard(e.parameter);
+      
+      default:
+        return createResponse(false, 'Invalid action');
+    }
+    
+  } catch (error) {
+    Logger.log('doGet Error: ' + error.toString());
+    return createResponse(false, 'Server error: ' + error.message);
+  }
+}
+
+/**
+ * Handles HTTP POST requests
+ * Routes: /income, /expense
+ */
+function doPost(e) {
+  try {
+    const action = e.parameter.action;
+    
+    if (!action) {
+      return createResponse(false, 'Action parameter is required');
+    }
+    
+    // Parse JSON body if present
+    let data = {};
+    if (e.postData && e.postData.contents) {
+      try {
+        data = JSON.parse(e.postData.contents);
+      } catch (parseError) {
+        return createResponse(false, 'Invalid JSON data');
+      }
+    }
+    
+    switch(action) {
+      case 'income':
+        return handleAddIncome(data);
+      
+      case 'expense':
+        return handleAddExpense(data);
+      
+      default:
+        return createResponse(false, 'Invalid action');
+    }
+    
+  } catch (error) {
+    Logger.log('doPost Error: ' + error.toString());
+    return createResponse(false, 'Server error: ' + error.message);
+  }
+}
+
+// ============================================================================
+// AUTHENTICATION
+// ============================================================================
+
+/**
+ * Authenticates user with username and PIN
+ * @param {Object} params - Contains username and pin
+ * @returns {Object} JSON response with user data or error
+ */
+function handleLogin(params) {
+  const username = params.username;
+  const pin = params.pin;
+  
+  if (!username || !pin) {
+    return createResponse(false, 'Username and PIN are required');
+  }
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const usersSheet = ss.getSheetByName(SHEET_NAMES.USERS);
+  const data = usersSheet.getDataRange().getValues();
+  
+  // Skip header row
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const dbUsername = row[0]; // Column A
+    const dbPin = String(row[1]); // Column B
+    const namaLengkap = row[2]; // Column C
+    const role = row[3]; // Column D
+    const status = row[4]; // Column E
+    
+    if (dbUsername === username && dbPin === pin) {
+      if (status !== 'Aktif') {
+        return createResponse(false, 'User account is inactive');
+      }
+      
+      return createResponse(true, 'Login successful', {
+        username: username,
+        nama_lengkap: namaLengkap,
+        role: role
+      });
+    }
+  }
+  
+  return createResponse(false, 'Invalid username or PIN');
+}
+
+// ============================================================================
+// INCOME HANDLERS
+// ============================================================================
+
+/**
+ * Adds a new income record to Pemasukan_Harian sheet
+ * @param {Object} data - Income data from frontend
+ * @returns {Object} JSON response
+ */
+function handleAddIncome(data) {
+  const { tanggal, total_cash, total_qris, keterangan, created_by } = data;
+  
+  // Validation
+  if (!tanggal || total_cash === undefined || total_qris === undefined) {
+    return createResponse(false, 'Missing required fields');
+  }
+  
+  const totalPemasukan = Number(total_cash) + Number(total_qris);
+  
+  // Generate unique ID
+  const id = generateIncomeId(tanggal);
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const incomeSheet = ss.getSheetByName(SHEET_NAMES.INCOME);
+  
+  // Append new row
+  incomeSheet.appendRow([
+    id,
+    tanggal,
+    Number(total_cash),
+    Number(total_qris),
+    totalPemasukan,
+    keterangan || '',
+    created_by || 'system'
+  ]);
+  
+  return createResponse(true, 'Income recorded successfully', {
+    id: id,
+    total_pemasukan: totalPemasukan
+  });
+}
+
+/**
+ * Generates unique income ID (INC-YYYYMMDD)
+ */
+function generateIncomeId(tanggal) {
+  const date = new Date(tanggal);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `INC-${year}${month}${day}`;
+}
+
+// ============================================================================
+// EXPENSE HANDLERS
+// ============================================================================
+
+/**
+ * Adds a new expense record to Pengeluaran sheet
+ * @param {Object} data - Expense data from frontend
+ * @returns {Object} JSON response
+ */
+function handleAddExpense(data) {
+  const { tanggal, jam, nama_barang, kategori, qty, satuan, harga_satuan, keterangan, created_by } = data;
+  
+  // Validation
+  if (!tanggal || !nama_barang || !qty || !harga_satuan) {
+    return createResponse(false, 'Missing required fields');
+  }
+  
+  const totalBiaya = Number(qty) * Number(harga_satuan);
+  
+  // Generate unique ID
+  const id = generateExpenseId(tanggal);
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const expenseSheet = ss.getSheetByName(SHEET_NAMES.EXPENSE);
+  
+  // Append new row
+  expenseSheet.appendRow([
+    id,
+    tanggal,
+    jam || '',
+    nama_barang,
+    kategori || '',
+    Number(qty),
+    satuan || '',
+    Number(harga_satuan),
+    totalBiaya,
+    keterangan || '',
+    created_by || 'system'
+  ]);
+  
+  return createResponse(true, 'Expense recorded successfully', {
+    id: id,
+    total_biaya: totalBiaya
+  });
+}
+
+/**
+ * Generates unique expense ID (EXP-YYYYMMDD-NNN)
+ */
+function generateExpenseId(tanggal) {
+  const date = new Date(tanggal);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const expenseSheet = ss.getSheetByName(SHEET_NAMES.EXPENSE);
+  const data = expenseSheet.getDataRange().getValues();
+  
+  // Count existing expenses for today
+  const prefix = `EXP-${year}${month}${day}`;
+  let count = 0;
+  
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).startsWith(prefix)) {
+      count++;
+    }
+  }
+  
+  const sequence = String(count + 1).padStart(3, '0');
+  return `${prefix}-${sequence}`;
+}
+
+// ============================================================================
+// MASTER DATA HANDLERS
+// ============================================================================
+
+/**
+ * Retrieves all items from Master_Barang sheet
+ * @returns {Object} JSON response with items array
+ */
+function handleGetMasterItems() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const masterSheet = ss.getSheetByName(SHEET_NAMES.MASTER_ITEMS);
+  const data = masterSheet.getDataRange().getValues();
+  
+  const items = [];
+  
+  // Skip header row
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (row[0]) { // Only include rows with ID
+      items.push({
+        id_barang: row[0],
+        nama_barang: row[1],
+        kategori: row[2],
+        satuan: row[3]
+      });
+    }
+  }
+  
+  return createResponse(true, 'Master items retrieved successfully', { items: items });
+}
+
+// ============================================================================
+// DASHBOARD HANDLERS
+// ============================================================================
+
+/**
+ * Retrieves dashboard summary data
+ * @param {Object} params - Contains period filter (today, week, month, year)
+ * @returns {Object} JSON response with financial summary
+ */
+function handleGetDashboard(params) {
+  const period = params.period || 'today';
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const dashboardSheet = ss.getSheetByName(SHEET_NAMES.DASHBOARD);
+  
+  let incomeCell, expenseCell, profitCell;
+  
+  switch(period) {
+    case 'today':
+      incomeCell = 'C2';
+      expenseCell = 'C3';
+      profitCell = 'C4';
+      break;
+    case 'week':
+      incomeCell = 'C7';
+      expenseCell = 'C8';
+      profitCell = 'C9';
+      break;
+    case 'month':
+      incomeCell = 'C12';
+      expenseCell = 'C13';
+      profitCell = 'C14';
+      break;
+    case 'year':
+      incomeCell = 'C17';
+      expenseCell = 'C18';
+      profitCell = 'C19';
+      break;
+    default:
+      return createResponse(false, 'Invalid period');
+  }
+  
+  const income = dashboardSheet.getRange(incomeCell).getValue() || 0;
+  const expense = dashboardSheet.getRange(expenseCell).getValue() || 0;
+  const profit = dashboardSheet.getRange(profitCell).getValue() || 0;
+  
+  return createResponse(true, 'Dashboard data retrieved successfully', {
+    period: period,
+    income: Number(income),
+    expense: Number(expense),
+    profit: Number(profit)
+  });
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Creates a standardized JSON response
+ * @param {boolean} success - Whether the request was successful
+ * @param {string} message - Response message
+ * @param {Object} data - Optional data payload
+ * @returns {ContentService.TextOutput} JSON response
+ */
+function createResponse(success, message, data = null) {
+  const response = {
+    success: success,
+    message: message
+  };
+  
+  if (data) {
+    response.data = data;
+  }
+  
+  return ContentService
+    .createTextOutput(JSON.stringify(response))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ============================================================================
+// TEST FUNCTIONS (For development only)
+// ============================================================================
+
+/**
+ * Test function to verify API endpoints
+ * Run this in Apps Script editor to test basic functionality
+ */
+function testAPI() {
+  Logger.log('Testing Login...');
+  const loginResult = handleLogin({ username: 'admin', pin: '123456' });
+  Logger.log(loginResult.getContent());
+  
+  Logger.log('\nTesting Master Items...');
+  const itemsResult = handleGetMasterItems();
+  Logger.log(itemsResult.getContent());
+  
+  Logger.log('\nTesting Dashboard...');
+  const dashboardResult = handleGetDashboard({ period: 'today' });
+  Logger.log(dashboardResult.getContent());
+}

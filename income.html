@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catat Pemasukan - Mie Ayam Financial</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  
+  <!-- Navigation Bar -->
+  <nav class="bg-green-600 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center space-x-3">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          <span class="font-bold text-xl">Catat Pemasukan</span>
+        </div>
+        <div class="flex items-center space-x-4">
+          <span id="userName" class="text-sm hidden sm:inline"></span>
+          <button onclick="Auth.logout()" class="bg-green-700 hover:bg-green-800 px-4 py-2 rounded-lg text-sm font-medium transition">
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Navigation Tabs -->
+    <div class="flex space-x-2 mb-6" id="navigationTabs">
+      <!-- Will be populated by JavaScript based on role -->
+    </div>
+
+    <!-- Income Form Card -->
+    <div class="bg-white rounded-xl shadow-lg p-6 sm:p-8">
+      <div class="flex items-center space-x-3 mb-6">
+        <div class="bg-green-100 p-3 rounded-lg">
+          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-2xl font-bold text-gray-800">Pemasukan Harian</h2>
+          <p class="text-gray-600 text-sm">Rekap total cash dan QRIS</p>
+        </div>
+      </div>
+
+      <form id="incomeForm" class="space-y-5">
+        
+        <!-- Date Field -->
+        <div>
+          <label for="tanggal" class="block text-sm font-medium text-gray-700 mb-2">
+            Tanggal <span class="text-red-500">*</span>
+          </label>
+          <input 
+            type="date" 
+            id="tanggal" 
+            name="tanggal"
+            required
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+          >
+        </div>
+
+        <!-- Total Cash Field -->
+        <div>
+          <label for="total_cash" class="block text-sm font-medium text-gray-700 mb-2">
+            Total Cash <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">Rp</span>
+            <input 
+              type="number" 
+              id="total_cash" 
+              name="total_cash"
+              required
+              min="0"
+              step="1000"
+              class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              placeholder="0"
+            >
+          </div>
+        </div>
+
+        <!-- Total QRIS Field -->
+        <div>
+          <label for="total_qris" class="block text-sm font-medium text-gray-700 mb-2">
+            Total QRIS <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">Rp</span>
+            <input 
+              type="number" 
+              id="total_qris" 
+              name="total_qris"
+              required
+              min="0"
+              step="1000"
+              class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              placeholder="0"
+            >
+          </div>
+        </div>
+
+        <!-- Total Pemasukan (Auto-calculated) -->
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div class="flex justify-between items-center">
+            <span class="text-sm font-medium text-gray-700">Total Pemasukan:</span>
+            <span id="totalPemasukan" class="text-2xl font-bold text-green-600">Rp 0</span>
+          </div>
+        </div>
+
+        <!-- Keterangan Field -->
+        <div>
+          <label for="keterangan" class="block text-sm font-medium text-gray-700 mb-2">
+            Keterangan (Opsional)
+          </label>
+          <textarea 
+            id="keterangan" 
+            name="keterangan"
+            rows="3"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition resize-none"
+            placeholder="Catatan tambahan (contoh: Shift sore, ramai)"
+          ></textarea>
+        </div>
+
+        <!-- Success Message -->
+        <div id="successMessage" class="hidden bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+          <div class="flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+            </svg>
+            <span id="successText"></span>
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <span id="errorText"></span>
+        </div>
+
+        <!-- Submit Button -->
+        <button 
+          type="submit" 
+          id="submitButton"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          <span>Simpan Pemasukan</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Info Box -->
+    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+      <p class="font-semibold text-blue-800 mb-2">💡 Tips:</p>
+      <ul class="list-disc list-inside space-y-1">
+        <li>Catat pemasukan harian setiap kali tutup kasir</li>
+        <li>Total Cash = Uang tunai di kasir</li>
+        <li>Total QRIS = Total pembayaran digital</li>
+        <li>Data akan langsung tersimpan di Google Sheets</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+      <span class="text-gray-700 font-medium">Menyimpan...</span>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/income.js"></script>
+</body>
+</html>

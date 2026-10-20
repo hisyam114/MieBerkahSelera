@@ -1,0 +1,422 @@
+# Implementation Plan: Mie Ayam Financial Recording Web Application
+
+## Project Overview
+Building a financial recording web application using Google Sheets as database, Google Apps Script as backend API, and GitHub Pages for frontend hosting.
+
+---
+
+## Phase 1: Google Sheets Database Setup
+
+### Step 1.1: Configure Google Sheets Structure
+**Status**: ⏸️ REQUIRES MANUAL SETUP
+
+**Google Sheets URL**: https://docs.google.com/spreadsheets/d/13RxW3a6eqGzNFSExhcXbb8l0p1waoqCGUW7dkhB2fRs/edit?usp=sharing
+
+**Action Required**:
+1. Open the Google Sheets link above
+2. Create/verify the following 5 worksheets exist:
+   - `Pemasukan_Harian`
+   - `Pengeluaran`
+   - `Master_Barang`
+   - `Users`
+   - `Dashboard`
+
+#### 1.1.1 Setup `Pemasukan_Harian` Sheet
+**Header Row (Row 1)**:
+```
+A: id_pemasukan | B: tanggal | C: total_cash | D: total_qris | E: total_pemasukan | F: keterangan | G: created_by
+```
+
+**Cell E2 Formula** (auto-calculate total):
+```
+=IF(ROW()=1,"",IF(C2<>"",C2+D2,""))
+```
+Then drag formula down or set as default for column E.
+
+#### 1.1.2 Setup `Pengeluaran` Sheet
+**Header Row (Row 1)**:
+```
+A: id_transaksi | B: tanggal | C: jam | D: nama_barang | E: kategori | F: qty | G: satuan | H: harga_satuan | I: total_biaya | J: keterangan | K: created_by
+```
+
+**Cell I2 Formula** (auto-calculate total cost):
+```
+=IF(ROW()=1,"",IF(F2<>"",F2*H2,""))
+```
+Then drag formula down or set as default for column I.
+
+#### 1.1.3 Setup `Master_Barang` Sheet
+**Header Row (Row 1)**:
+```
+A: id_barang | B: nama_barang | C: kategori | D: satuan
+```
+
+**Sample Data** (Add rows 2-10+):
+```
+BRG-001 | AYAM CINCANG | Bahan Baku | kg
+BRG-002 | SAOS | Bumbu | botol
+BRG-003 | SASA KECIL | Bumbu | pack
+BRG-004 | GAS | Operasional | tabung
+BRG-005 | BAWANG PUTIH | Bahan Baku | ikat
+BRG-006 | MIE KUNING | Bahan Baku | kg
+BRG-007 | BOX KEMASAN | Kemasan | pcs
+BRG-008 | SABUN CUCI | Kebersihan | botol
+```
+
+#### 1.1.4 Setup `Users` Sheet
+**Header Row (Row 1)**:
+```
+A: username | B: pin | C: nama_lengkap | D: role | E: status
+```
+
+**Sample Data** (Add rows 2-3):
+```
+admin | 123456 | Owner Mie Ayam | Admin | Aktif
+kasir1 | 111111 | Staff Kasir | Staff | Aktif
+```
+
+#### 1.1.5 Setup `Dashboard` Sheet
+**Structure**:
+```
+Row 1: [HEADER] Today's Summary
+Row 2: B2: Income Today | C2: [Formula]
+Row 3: B3: Expense Today | C3: [Formula]
+Row 4: B4: Net Profit Today | C4: [Formula]
+Row 6: [HEADER] This Week (Past 7 Days)
+Row 7: B7: Income This Week | C7: [Formula]
+Row 8: B8: Expense This Week | C8: [Formula]
+Row 9: B9: Net Profit This Week | C9: [Formula]
+Row 11: [HEADER] This Month
+Row 12: B12: Income This Month | C12: [Formula]
+Row 13: B13: Expense This Month | C13: [Formula]
+Row 14: B14: Net Profit This Month | C14: [Formula]
+Row 16: [HEADER] This Year
+Row 17: B17: Income This Year | C17: [Formula]
+Row 18: B18: Expense This Year | C18: [Formula]
+Row 19: B19: Net Profit This Year | C19: [Formula]
+```
+
+**Formulas to Add**:
+```
+C2: =SUMIFS(Pemasukan_Harian!E:E,Pemasukan_Harian!B:B,TODAY())
+C3: =SUMIFS(Pengeluaran!I:I,Pengeluaran!B:B,TODAY())
+C4: =C2-C3
+
+C7: =SUMIFS(Pemasukan_Harian!E:E,Pemasukan_Harian!B:B,">="&(TODAY()-6),Pemasukan_Harian!B:B,"<="&TODAY())
+C8: =SUMIFS(Pengeluaran!I:I,Pengeluaran!B:B,">="&(TODAY()-6),Pengeluaran!B:B,"<="&TODAY())
+C9: =C7-C8
+
+C12: =SUMIFS(Pemasukan_Harian!E:E,Pemasukan_Harian!B:B,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Pemasukan_Harian!B:B,"<="&EOMONTH(TODAY(),0))
+C13: =SUMIFS(Pengeluaran!I:I,Pengeluaran!B:B,">="&DATE(YEAR(TODAY()),MONTH(TODAY()),1),Pengeluaran!B:B,"<="&EOMONTH(TODAY(),0))
+C14: =C12-C13
+
+C17: =SUMIFS(Pemasukan_Harian!E:E,Pemasukan_Harian!B:B,">="&DATE(YEAR(TODAY()),1,1),Pemasukan_Harian!B:B,"<="&DATE(YEAR(TODAY()),12,31))
+C18: =SUMIFS(Pengeluaran!I:I,Pengeluaran!B:B,">="&DATE(YEAR(TODAY()),1,1),Pengeluaran!B:B,"<="&DATE(YEAR(TODAY()),12,31))
+C19: =C17-C18
+```
+
+**✅ Checklist**:
+- [ ] All 5 sheets created
+- [ ] All headers configured correctly
+- [ ] Formulas added to Pemasukan_Harian (column E)
+- [ ] Formulas added to Pengeluaran (column I)
+- [ ] Master_Barang populated with sample items
+- [ ] Users sheet populated with admin and staff accounts
+- [ ] Dashboard formulas configured
+- [ ] Test formulas by adding sample data
+
+---
+
+## Phase 2: Google Apps Script Backend Development
+
+### Step 2.1: Create Google Apps Script Project
+**Status**: ⏸️ REQUIRES MANUAL SETUP
+
+**Action Required**:
+1. In your Google Sheets, click **Extensions → Apps Script**
+2. This will open the Apps Script editor
+3. Delete any default code in `Code.gs`
+4. Keep the Apps Script editor tab open - we'll add code in the next step
+
+**✅ Checklist**:
+- [ ] Apps Script project created
+- [ ] Editor opened and ready
+
+---
+
+### Step 2.2: Implement Backend API Code
+**Status**: 🤖 AUTO (Code will be provided)
+
+I will create the complete Google Apps Script code file that you'll need to copy-paste into the Apps Script editor.
+
+**Files to Create**:
+- `backend/Code.gs` - Complete Apps Script code with all API endpoints
+
+**✅ Checklist**:
+- [ ] Code generated by system
+- [ ] Ready to copy to Apps Script editor
+
+---
+
+### Step 2.3: Deploy Google Apps Script as Web App
+**Status**: ⏸️ REQUIRES MANUAL SETUP
+
+**Action Required**:
+1. In Apps Script editor, click **Deploy → New deployment**
+2. Click the gear icon ⚙️ and select **Web app**
+3. Configure deployment:
+   - **Description**: "Mie Ayam Financial API v1"
+   - **Execute as**: Me (your email)
+   - **Who has access**: Anyone
+4. Click **Deploy**
+5. **Authorize** the script (follow Google's permission prompts)
+6. **Copy the Web App URL** - it looks like:
+   ```
+   https://script.google.com/macros/s/AKfycby.../exec
+   ```
+7. Save this URL - you'll need it for frontend configuration
+
+**✅ Checklist**:
+- [ ] Web app deployed successfully
+- [ ] Authorization completed
+- [ ] Web App URL copied and saved
+- [ ] Tested URL in browser (should return JSON response)
+
+---
+
+## Phase 3: Frontend Development
+
+### Step 3.1: Project Structure Setup
+**Status**: 🤖 AUTO
+
+I will create the complete frontend project structure:
+
+```
+MieBerkahSelera/
+├── index.html              # Landing/Login page
+├── dashboard.html          # Admin dashboard
+├── income.html            # Daily income form
+├── expense.html           # Expense logging form
+├── css/
+│   └── styles.css         # Custom styles (Tailwind via CDN)
+├── js/
+│   ├── config.js          # API URL configuration
+│   ├── auth.js            # Authentication logic
+│   ├── api.js             # API communication layer
+│   ├── dashboard.js       # Dashboard functionality
+│   ├── income.js          # Income form logic
+│   └── expense.js         # Expense form logic
+└── assets/
+    └── logo.png           # Optional business logo
+```
+
+**✅ Checklist**:
+- [ ] All HTML files created
+- [ ] All JavaScript modules created
+- [ ] CSS file created
+- [ ] Project structure complete
+
+---
+
+### Step 3.2: Configure API Endpoint
+**Status**: ⏸️ REQUIRES MANUAL INPUT
+
+After deployment in Step 2.3, you'll need to provide the Google Apps Script Web App URL.
+
+**Action Required**:
+1. Open `js/config.js`
+2. Replace `YOUR_DEPLOYED_WEB_APP_URL_HERE` with your actual Web App URL from Step 2.3
+
+**✅ Checklist**:
+- [ ] Web App URL added to config.js
+- [ ] Configuration verified
+
+---
+
+## Phase 4: GitHub Pages Deployment
+
+### Step 4.1: Initialize Git Repository (if needed)
+**Status**: ✅ ALREADY EXISTS (detected .git folder)
+
+The repository already exists.
+
+---
+
+### Step 4.2: Commit All Files
+**Status**: 🤖 AUTO
+
+I will stage and commit all created files to git.
+
+**✅ Checklist**:
+- [ ] All files staged
+- [ ] Initial commit created
+- [ ] Commit message added
+
+---
+
+### Step 4.3: Push to GitHub
+**Status**: ⏸️ REQUIRES MANUAL SETUP
+
+**Action Required**:
+1. Create a new GitHub repository (if not exists):
+   - Go to https://github.com/new
+   - Name: `mie-ayam-financial`
+   - Visibility: Private (recommended for business data)
+   - Do NOT initialize with README
+
+2. Add remote and push:
+   ```powershell
+   git remote add origin https://github.com/YOUR_USERNAME/mie-ayam-financial.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+**✅ Checklist**:
+- [ ] GitHub repository created
+- [ ] Remote added
+- [ ] Code pushed to GitHub
+
+---
+
+### Step 4.4: Enable GitHub Pages
+**Status**: ⏸️ REQUIRES MANUAL SETUP
+
+**Action Required**:
+1. Go to your GitHub repository
+2. Click **Settings** → **Pages** (in left sidebar)
+3. Under **Source**, select:
+   - Branch: `main`
+   - Folder: `/ (root)`
+4. Click **Save**
+5. Wait 1-2 minutes for deployment
+6. Your site will be available at:
+   ```
+   https://YOUR_USERNAME.github.io/mie-ayam-financial/
+   ```
+
+**✅ Checklist**:
+- [ ] GitHub Pages enabled
+- [ ] Deployment successful
+- [ ] Website accessible via URL
+
+---
+
+## Phase 5: Testing & Validation
+
+### Step 5.1: Authentication Testing
+**Test Cases**:
+- [ ] Login with admin credentials (admin / 123456)
+- [ ] Login with staff credentials (kasir1 / 111111)
+- [ ] Test invalid credentials rejection
+- [ ] Verify admin redirects to dashboard
+- [ ] Verify staff redirects to forms (no dashboard access)
+- [ ] Test logout functionality
+
+### Step 5.2: Income Logging Testing
+**Test Cases**:
+- [ ] Submit daily income with cash only
+- [ ] Submit daily income with QRIS only
+- [ ] Submit daily income with both cash and QRIS
+- [ ] Verify auto-calculation of total_pemasukan
+- [ ] Verify data appears in Google Sheets
+- [ ] Test with retroactive date entry
+
+### Step 5.3: Expense Logging Testing
+**Test Cases**:
+- [ ] Load dropdown from Master_Barang
+- [ ] Select item and verify auto-fill of kategori and satuan
+- [ ] Submit expense with valid quantity and price
+- [ ] Verify auto-calculation of total_biaya
+- [ ] Verify data appears in Google Sheets
+- [ ] Test multiple expense entries in succession
+
+### Step 5.4: Dashboard Testing (Admin Only)
+**Test Cases**:
+- [ ] Verify staff cannot access dashboard
+- [ ] Admin can view Today's summary
+- [ ] Admin can view This Week summary
+- [ ] Admin can view This Month summary
+- [ ] Admin can view This Year summary
+- [ ] Verify calculations match Google Sheets Dashboard
+
+### Step 5.5: Mobile Responsiveness Testing
+**Test Cases**:
+- [ ] Test on mobile device (portrait mode)
+- [ ] Test on mobile device (landscape mode)
+- [ ] Test on tablet
+- [ ] Test on desktop
+- [ ] Verify touch targets are at least 48x48px
+- [ ] Verify form inputs are easily tappable
+
+---
+
+## Phase 6: Documentation & Handover
+
+### Step 6.1: User Manual Creation
+**Status**: 🤖 AUTO
+
+I will create a comprehensive user manual covering:
+- How to log in
+- How to record daily income
+- How to record expenses
+- How to view dashboard (admin only)
+- How to add new items to Master_Barang
+
+### Step 6.2: Admin Guide Creation
+**Status**: 🤖 AUTO
+
+I will create an admin guide covering:
+- How to add/remove users
+- How to add new inventory items
+- How to backup data
+- Troubleshooting common issues
+
+---
+
+## Implementation Sequence
+
+### Ready to Start (All Automated Steps)
+Once you complete the manual setup steps, I will execute the following in sequence:
+
+1. ✅ Create backend Google Apps Script code → `backend/Code.gs`
+2. ✅ Create complete frontend HTML files
+3. ✅ Create all JavaScript modules
+4. ✅ Create CSS styling
+5. ✅ Create configuration file (with placeholder for your Web App URL)
+6. ✅ Create user manual
+7. ✅ Create admin guide
+8. ✅ Stage and commit all files to git
+
+---
+
+## Manual Steps Summary (Your Action Required)
+
+| Step | Phase | Estimated Time |
+|------|-------|----------------|
+| 1. Setup Google Sheets (5 worksheets + formulas) | Phase 1 | 15-20 minutes |
+| 2. Create Apps Script project | Phase 2.1 | 2 minutes |
+| 3. Copy-paste backend code to Apps Script | Phase 2.2 | 3 minutes |
+| 4. Deploy Apps Script as Web App + Get URL | Phase 2.3 | 5 minutes |
+| 5. Update config.js with Web App URL | Phase 3.2 | 1 minute |
+| 6. Create GitHub repository | Phase 4.3 | 3 minutes |
+| 7. Push code to GitHub | Phase 4.3 | 2 minutes |
+| 8. Enable GitHub Pages | Phase 4.4 | 3 minutes |
+| 9. Test application end-to-end | Phase 5 | 20 minutes |
+
+**Total Estimated Time**: ~55 minutes of manual work
+
+---
+
+## Ready to Proceed?
+
+Please confirm you're ready, and I will:
+
+1. ✅ Generate all code files (backend + frontend)
+2. ✅ Create project structure
+3. ✅ Create documentation
+4. ✅ Commit everything to git
+5. ⏸️ Stop before pushing to GitHub (waiting for your manual steps)
+
+After I complete the automated steps, you'll follow the manual steps in this plan document.
+
+**Type "proceed" to start implementation!**
