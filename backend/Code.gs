@@ -397,15 +397,48 @@ function createResponse(success, message, data = null) {
  * Run this in Apps Script editor to test basic functionality
  */
 function testAPI() {
-  Logger.log('Testing Login...');
+  Logger.log('=== TESTING MIE AYAM FINANCIAL API ===\n');
+  
+  Logger.log('1. Testing Login...');
   const loginResult = handleLogin({ username: 'admin', pin: '123456' });
-  Logger.log(loginResult.getContent());
+  Logger.log('Login Response: ' + loginResult.getContent());
   
-  Logger.log('\nTesting Master Items...');
+  Logger.log('\n2. Testing Master Items...');
   const itemsResult = handleGetMasterItems();
-  Logger.log(itemsResult.getContent());
+  Logger.log('Master Items Response: ' + itemsResult.getContent());
   
-  Logger.log('\nTesting Dashboard...');
+  Logger.log('\n3. Testing Dashboard...');
   const dashboardResult = handleGetDashboard({ period: 'today' });
-  Logger.log(dashboardResult.getContent());
+  Logger.log('Dashboard Response: ' + dashboardResult.getContent());
+  
+  Logger.log('\n=== ALL TESTS COMPLETED ===');
+  Logger.log('If you see "success":true for all tests, your API is working!');
+  Logger.log('Next step: Deploy as Web App');
+}
+
+/**
+ * Simple test to verify Sheets connection
+ */
+function testSheetsConnection() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    Logger.log('✅ Connected to Google Sheets successfully!');
+    Logger.log('Sheet name: ' + ss.getName());
+    
+    // Test each sheet
+    const sheets = ['Users', 'Pemasukan_Harian', 'Pengeluaran', 'Master_Barang', 'Dashboard'];
+    sheets.forEach(sheetName => {
+      const sheet = ss.getSheetByName(sheetName);
+      if (sheet) {
+        Logger.log('✅ Found sheet: ' + sheetName + ' (' + sheet.getLastRow() + ' rows)');
+      } else {
+        Logger.log('❌ Missing sheet: ' + sheetName);
+      }
+    });
+    
+    return 'Connection test passed!';
+  } catch (error) {
+    Logger.log('❌ Error: ' + error.toString());
+    return 'Connection test failed!';
+  }
 }

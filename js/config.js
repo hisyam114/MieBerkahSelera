@@ -16,7 +16,7 @@
 
 const CONFIG = {
   // TODO: Replace this with your actual Web App URL after deployment
-  API_URL: 'https://script.google.com/macros/s/AKfycbwsoIWf_GPexrNd-zuNhlSC3SJGZVaC98_g0OmN1dDfbh8NtWv23hvjuRormU_Vg75A/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbwfLvt8oWkjsvmrky4sJmFyMi6CuSD7lb8ojY_qqXw373G3uKBVUTYb1cYb4rSG6J1A/exec',
   
   // App Settings
   APP_NAME: 'Mie Ayam Financial Recording',
