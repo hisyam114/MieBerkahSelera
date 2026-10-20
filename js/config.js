@@ -9,11 +9,14 @@
  * 3. Select "Web app" type
  * 4. Deploy and copy the URL
  * 5. Paste it below
+ * AKfycbwsoIWf_GPexrNd-zuNhlSC3SJGZVaC98_g0OmN1dDfbh8NtWv23hvjuRormU_Vg75A
  */
+
+
 
 const CONFIG = {
   // TODO: Replace this with your actual Web App URL after deployment
-  API_URL: 'YOUR_DEPLOYED_WEB_APP_URL_HERE',
+  API_URL: 'https://script.google.com/macros/s/AKfycbwsoIWf_GPexrNd-zuNhlSC3SJGZVaC98_g0OmN1dDfbh8NtWv23hvjuRormU_Vg75A/exec',
   
   // App Settings
   APP_NAME: 'Mie Ayam Financial Recording',
