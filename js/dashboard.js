@@ -17,14 +17,21 @@ let currentPeriod = 'today';
 
 // Auto-refresh interval reference
 let refreshInterval = null;
+let isInitialLoad = true; // Track if this is the first load
 
 // Load dashboard data with cache busting
 async function loadDashboard(period = 'today') {
+  const loadingOverlay = document.getElementById('loadingOverlay');
   const incomeValue = document.getElementById('incomeValue');
   const expenseValue = document.getElementById('expenseValue');
   const profitValue = document.getElementById('profitValue');
   
   try {
+    // Show loading overlay only on initial page load
+    if (isInitialLoad && loadingOverlay) {
+      loadingOverlay.classList.remove('hidden');
+    }
+    
     // Fetch data from API with cache busting
     const data = await API.getDashboard(period);
     
@@ -73,6 +80,12 @@ async function loadDashboard(period = 'today') {
     if (incomeValue) incomeValue.textContent = formatCurrency(0);
     if (expenseValue) expenseValue.textContent = formatCurrency(0);
     if (profitValue) profitValue.textContent = formatCurrency(0);
+  } finally {
+    // Hide loading overlay after initial load
+    if (isInitialLoad && loadingOverlay) {
+      loadingOverlay.classList.add('hidden');
+      isInitialLoad = false; // Mark that initial load is complete
+    }
   }
 }
 
