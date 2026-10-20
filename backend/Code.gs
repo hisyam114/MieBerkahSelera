@@ -322,70 +322,93 @@ function handleGetDashboard(params) {
   const incomeSheet = ss.getSheetByName(SHEET_NAMES.INCOME);
   const expenseSheet = ss.getSheetByName(SHEET_NAMES.EXPENSE);
   
-  // Get date range based on period
+  // Get today's date in script timezone
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Start of today
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const day = today.getDate();
   
   let startDate, endDate;
   
   switch(period) {
     case 'today':
-      startDate = new Date(today);
-      endDate = new Date(today);
-      endDate.setHours(23, 59, 59, 999);
+      startDate = new Date(year, month, day);
+      endDate = new Date(year, month, day, 23, 59, 59);
       break;
     case 'week':
-      startDate = new Date(today);
-      startDate.setDate(today.getDate() - 6); // 7 days including today
-      endDate = new Date(today);
-      endDate.setHours(23, 59, 59, 999);
+      startDate = new Date(year, month, day - 6); // 7 days including today
+      endDate = new Date(year, month, day, 23, 59, 59);
       break;
     case 'month':
-      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-      endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-      endDate.setHours(23, 59, 59, 999);
+      startDate = new Date(year, month, 1);
+      endDate = new Date(year, month + 1, 0, 23, 59, 59);
       break;
     case 'year':
-      startDate = new Date(today.getFullYear(), 0, 1);
-      endDate = new Date(today.getFullYear(), 11, 31);
-      endDate.setHours(23, 59, 59, 999);
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year, 11, 31, 23, 59, 59);
       break;
     default:
       return createResponse(false, 'Invalid period');
   }
   
-  // Calculate income
+  // Calculate income - sum ALL rows in date range
   let totalIncome = 0;
   const incomeData = incomeSheet.getDataRange().getValues();
+  
   for (let i = 1; i < incomeData.length; i++) {
     const row = incomeData[i];
     const dateCell = row[1]; // Column B: tanggal
-    const totalPemasukan = row[4]; // Column E: total_pemasukan
     
-    if (dateCell && totalPemasukan) {
-      const rowDate = new Date(dateCell);
-      rowDate.setHours(0, 0, 0, 0);
+    // Skip empty rows
+    if (!dateCell) continue;
+    
+    // Get income amount from column E (total_pemasukan) or calculate from C+D
+    let amount = row[4]; // Column E
+    if (!amount || amount === '') {
+      // Fallback: calculate from cash + qris
+      const cash = Number(row[2]) || 0; // Column C
+      const qris = Number(row[3]) || 0; // Column D
+      amount = cash + qris;
+    }
+    
+    if (amount && amount !== 0) {
+      // Convert date to comparable format
+      let rowDate = new Date(dateCell);
       
+      // Compare dates
       if (rowDate >= startDate && rowDate <= endDate) {
-        totalIncome += Number(totalPemasukan) || 0;
+        totalIncome += Number(amount);
       }
     }
   }
   
-  // Calculate expense
+  // Calculate expense - sum ALL rows in date range
   let totalExpense = 0;
   const expenseData = expenseSheet.getDataRange().getValues();
+  
   for (let i = 1; i < expenseData.length; i++) {
     const row = expenseData[i];
     const dateCell = row[1]; // Column B: tanggal
-    const totalBiaya = row[8]; // Column I: total_biaya
     
-    if (dateCell && totalBiaya) {
-      const rowDate = new Date(dateCell);
-      rowDate.setHours(0, 0, 0, 0);
+    // Skip empty rows
+    if (!dateCell) continue;
+    
+    // Get expense amount from column I (total_biaya) or calculate from F*H
+    let amount = row[8]; // Column I
+    if (!amount || amount === '') {
+      // Fallback: calculate from qty * price
+      const qty = Number(row[5]) || 0; // Column F
+      const price = Number(row[7]) || 0; // Column H
+      amount = qty * price;
+    }
+    
+    if (amount && amount !== 0) {
+      // Convert date to comparable format
+      let rowDate = new Date(dateCell);
       
+      // Compare dates
       if (rowDate >= startDate && rowDate <= endDate) {
-        totalExpense += Number(totalBiaya) || 0;
+        totalExpense += Number(amount);
       }
     }
   }
