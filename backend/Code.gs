@@ -311,7 +311,7 @@ function handleGetMasterItems() {
 // ============================================================================
 
 /**
- * Retrieves dashboard summary data
+ * Retrieves dashboard summary data by calculating directly from data sheets
  * @param {Object} params - Contains period filter (today, week, month, year)
  * @returns {Object} JSON response with financial summary
  */
@@ -319,44 +319,84 @@ function handleGetDashboard(params) {
   const period = params.period || 'today';
   
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const dashboardSheet = ss.getSheetByName(SHEET_NAMES.DASHBOARD);
+  const incomeSheet = ss.getSheetByName(SHEET_NAMES.INCOME);
+  const expenseSheet = ss.getSheetByName(SHEET_NAMES.EXPENSE);
   
-  let incomeCell, expenseCell, profitCell;
+  // Get date range based on period
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Start of today
+  
+  let startDate, endDate;
   
   switch(period) {
     case 'today':
-      incomeCell = 'C2';
-      expenseCell = 'C3';
-      profitCell = 'C4';
+      startDate = new Date(today);
+      endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
       break;
     case 'week':
-      incomeCell = 'C7';
-      expenseCell = 'C8';
-      profitCell = 'C9';
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - 6); // 7 days including today
+      endDate = new Date(today);
+      endDate.setHours(23, 59, 59, 999);
       break;
     case 'month':
-      incomeCell = 'C12';
-      expenseCell = 'C13';
-      profitCell = 'C14';
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      endDate.setHours(23, 59, 59, 999);
       break;
     case 'year':
-      incomeCell = 'C17';
-      expenseCell = 'C18';
-      profitCell = 'C19';
+      startDate = new Date(today.getFullYear(), 0, 1);
+      endDate = new Date(today.getFullYear(), 11, 31);
+      endDate.setHours(23, 59, 59, 999);
       break;
     default:
       return createResponse(false, 'Invalid period');
   }
   
-  const income = dashboardSheet.getRange(incomeCell).getValue() || 0;
-  const expense = dashboardSheet.getRange(expenseCell).getValue() || 0;
-  const profit = dashboardSheet.getRange(profitCell).getValue() || 0;
+  // Calculate income
+  let totalIncome = 0;
+  const incomeData = incomeSheet.getDataRange().getValues();
+  for (let i = 1; i < incomeData.length; i++) {
+    const row = incomeData[i];
+    const dateCell = row[1]; // Column B: tanggal
+    const totalPemasukan = row[4]; // Column E: total_pemasukan
+    
+    if (dateCell && totalPemasukan) {
+      const rowDate = new Date(dateCell);
+      rowDate.setHours(0, 0, 0, 0);
+      
+      if (rowDate >= startDate && rowDate <= endDate) {
+        totalIncome += Number(totalPemasukan) || 0;
+      }
+    }
+  }
+  
+  // Calculate expense
+  let totalExpense = 0;
+  const expenseData = expenseSheet.getDataRange().getValues();
+  for (let i = 1; i < expenseData.length; i++) {
+    const row = expenseData[i];
+    const dateCell = row[1]; // Column B: tanggal
+    const totalBiaya = row[8]; // Column I: total_biaya
+    
+    if (dateCell && totalBiaya) {
+      const rowDate = new Date(dateCell);
+      rowDate.setHours(0, 0, 0, 0);
+      
+      if (rowDate >= startDate && rowDate <= endDate) {
+        totalExpense += Number(totalBiaya) || 0;
+      }
+    }
+  }
+  
+  const profit = totalIncome - totalExpense;
   
   return createResponse(true, 'Dashboard data retrieved successfully', {
     period: period,
-    income: Number(income),
-    expense: Number(expense),
-    profit: Number(profit)
+    income: totalIncome,
+    expense: totalExpense,
+    profit: profit
   });
 }
 
