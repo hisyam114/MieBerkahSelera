@@ -83,15 +83,8 @@ function doPost(e) {
       return createResponse(false, 'Action parameter is required');
     }
     
-    // Parse JSON body if present
-    let data = {};
-    if (e.postData && e.postData.contents) {
-      try {
-        data = JSON.parse(e.postData.contents);
-      } catch (parseError) {
-        return createResponse(false, 'Invalid JSON data');
-      }
-    }
+    // Get data from form parameters (not JSON body)
+    const data = e.parameter;
     
     switch(action) {
       case 'income':
