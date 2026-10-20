@@ -19,20 +19,16 @@ let currentPeriod = 'today';
 let refreshInterval = null;
 
 // Load dashboard data with cache busting
-async function loadDashboard(period = 'today', showLoading = true) {
-  const loadingOverlay = document.getElementById('loadingOverlay');
+async function loadDashboard(period = 'today') {
   const incomeValue = document.getElementById('incomeValue');
   const expenseValue = document.getElementById('expenseValue');
   const profitValue = document.getElementById('profitValue');
   
   try {
-    // Show loading only on initial load or manual refresh
-    if (showLoading) {
-      loadingOverlay.classList.remove('hidden');
-    }
-    
     // Fetch data from API with cache busting
     const data = await API.getDashboard(period);
+    
+    console.log('Dashboard data loaded:', data); // Debug log
     
     // Format currency
     const formatCurrency = (value) => {
@@ -40,7 +36,7 @@ async function loadDashboard(period = 'today', showLoading = true) {
         style: 'currency',
         currency: 'IDR',
         minimumFractionDigits: 0
-      }).format(value);
+      }).format(value || 0);
     };
     
     // Update KPI values
@@ -64,10 +60,19 @@ async function loadDashboard(period = 'today', showLoading = true) {
     
   } catch (error) {
     console.error('Error loading dashboard:', error);
-    alert('Gagal memuat data dashboard: ' + error.message);
-  } finally {
-    // Hide loading
-    loadingOverlay.classList.add('hidden');
+    // Don't alert, just log the error
+    // Set default values on error
+    const formatCurrency = (value) => {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+      }).format(value || 0);
+    };
+    
+    if (incomeValue) incomeValue.textContent = formatCurrency(0);
+    if (expenseValue) expenseValue.textContent = formatCurrency(0);
+    if (profitValue) profitValue.textContent = formatCurrency(0);
   }
 }
 
@@ -98,17 +103,17 @@ document.querySelectorAll('.period-tab:not(.active)').forEach(tab => {
   tab.classList.add('text-gray-600', 'hover:bg-gray-50');
 });
 
-// Initial load with loading overlay
-loadDashboard(currentPeriod, true);
+// Initial load
+loadDashboard(currentPeriod);
 
 // Clear any existing interval
 if (refreshInterval) {
   clearInterval(refreshInterval);
 }
 
-// Auto-refresh every 10 seconds (without loading overlay)
+// Auto-refresh every 10 seconds
 refreshInterval = setInterval(() => {
-  loadDashboard(currentPeriod, false);
+  loadDashboard(currentPeriod);
 }, 10000);
 
 // Clear interval when page is hidden/closed
@@ -123,9 +128,9 @@ document.addEventListener('visibilitychange', () => {
       clearInterval(refreshInterval);
     }
     refreshInterval = setInterval(() => {
-      loadDashboard(currentPeriod, false);
+      loadDashboard(currentPeriod);
     }, 10000);
     // Refresh immediately when returning
-    loadDashboard(currentPeriod, false);
+    loadDashboard(currentPeriod);
   }
 });
