@@ -15,18 +15,23 @@ if (user) {
 // Current selected period
 let currentPeriod = 'today';
 
-// Load dashboard data
-async function loadDashboard(period = 'today') {
+// Auto-refresh interval reference
+let refreshInterval = null;
+
+// Load dashboard data with cache busting
+async function loadDashboard(period = 'today', showLoading = true) {
   const loadingOverlay = document.getElementById('loadingOverlay');
   const incomeValue = document.getElementById('incomeValue');
   const expenseValue = document.getElementById('expenseValue');
   const profitValue = document.getElementById('profitValue');
   
   try {
-    // Show loading
-    loadingOverlay.classList.remove('hidden');
+    // Show loading only on initial load or manual refresh
+    if (showLoading) {
+      loadingOverlay.classList.remove('hidden');
+    }
     
-    // Fetch data from API
+    // Fetch data from API with cache busting
     const data = await API.getDashboard(period);
     
     // Format currency
@@ -93,10 +98,34 @@ document.querySelectorAll('.period-tab:not(.active)').forEach(tab => {
   tab.classList.add('text-gray-600', 'hover:bg-gray-50');
 });
 
-// Initial load
-loadDashboard(currentPeriod);
+// Initial load with loading overlay
+loadDashboard(currentPeriod, true);
 
-// Auto-refresh every 30 seconds
-setInterval(() => {
-  loadDashboard(currentPeriod);
-}, 30000);
+// Clear any existing interval
+if (refreshInterval) {
+  clearInterval(refreshInterval);
+}
+
+// Auto-refresh every 10 seconds (without loading overlay)
+refreshInterval = setInterval(() => {
+  loadDashboard(currentPeriod, false);
+}, 10000);
+
+// Clear interval when page is hidden/closed
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+    }
+  } else {
+    // Resume auto-refresh when page becomes visible again
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+    }
+    refreshInterval = setInterval(() => {
+      loadDashboard(currentPeriod, false);
+    }, 10000);
+    // Refresh immediately when returning
+    loadDashboard(currentPeriod, false);
+  }
+});

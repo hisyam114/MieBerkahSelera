@@ -11,7 +11,8 @@ const API = {
    * @returns {Promise<Object>} User data
    */
   async login(username, pin) {
-    const url = `${CONFIG.API_URL}?action=login&username=${encodeURIComponent(username)}&pin=${encodeURIComponent(pin)}`;
+    const timestamp = new Date().getTime();
+    const url = `${CONFIG.API_URL}?action=login&username=${encodeURIComponent(username)}&pin=${encodeURIComponent(pin)}&_t=${timestamp}`;
     return await this._fetch(url);
   },
 
@@ -20,7 +21,8 @@ const API = {
    * @returns {Promise<Array>} Array of items
    */
   async getMasterItems() {
-    const url = `${CONFIG.API_URL}?action=master-items`;
+    const timestamp = new Date().getTime();
+    const url = `${CONFIG.API_URL}?action=master-items&_t=${timestamp}`;
     const response = await this._fetch(url);
     return response.items || [];
   },
@@ -31,7 +33,9 @@ const API = {
    * @returns {Promise<Object>} Dashboard data
    */
   async getDashboard(period = 'today') {
-    const url = `${CONFIG.API_URL}?action=dashboard&period=${period}`;
+    // Add cache busting parameter
+    const timestamp = new Date().getTime();
+    const url = `${CONFIG.API_URL}?action=dashboard&period=${period}&_t=${timestamp}`;
     return await this._fetch(url);
   },
 

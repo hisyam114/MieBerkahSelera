@@ -5,6 +5,11 @@
 
 const Auth = {
   /**
+   * Session timeout (8 hours in milliseconds)
+   */
+  SESSION_TIMEOUT: 8 * 60 * 60 * 1000,
+
+  /**
    * Performs user login
    * @param {string} username 
    * @param {string} pin 
@@ -14,8 +19,13 @@ const Auth = {
     try {
       const userData = await API.login(username, pin);
       
-      // Store user data in session storage
-      sessionStorage.setItem(CONFIG.STORAGE_KEYS.USER, JSON.stringify(userData));
+      // Store user data and login timestamp
+      const loginData = {
+        user: userData,
+        timestamp: new Date().getTime()
+      };
+      
+      sessionStorage.setItem(CONFIG.STORAGE_KEYS.USER, JSON.stringify(loginData));
       sessionStorage.setItem(CONFIG.STORAGE_KEYS.TOKEN, 'authenticated');
       
       return true;
@@ -35,11 +45,35 @@ const Auth = {
   },
 
   /**
-   * Checks if user is logged in
+   * Checks if user is logged in and session is valid
    * @returns {boolean}
    */
   isAuthenticated() {
-    return sessionStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN) === 'authenticated';
+    if (sessionStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN) !== 'authenticated') {
+      return false;
+    }
+    
+    // Check session timeout
+    const loginDataJson = sessionStorage.getItem(CONFIG.STORAGE_KEYS.USER);
+    if (!loginDataJson) {
+      return false;
+    }
+    
+    try {
+      const loginData = JSON.parse(loginDataJson);
+      const now = new Date().getTime();
+      const elapsed = now - (loginData.timestamp || 0);
+      
+      // If session expired, clear and return false
+      if (elapsed > this.SESSION_TIMEOUT) {
+        this.logout();
+        return false;
+      }
+      
+      return true;
+    } catch (e) {
+      return false;
+    }
   },
 
   /**
@@ -47,8 +81,15 @@ const Auth = {
    * @returns {Object|null}
    */
   getCurrentUser() {
-    const userJson = sessionStorage.getItem(CONFIG.STORAGE_KEYS.USER);
-    return userJson ? JSON.parse(userJson) : null;
+    const loginDataJson = sessionStorage.getItem(CONFIG.STORAGE_KEYS.USER);
+    if (!loginDataJson) return null;
+    
+    try {
+      const loginData = JSON.parse(loginDataJson);
+      return loginData.user || loginData; // Support both old and new format
+    } catch (e) {
+      return null;
+    }
   },
 
   /**
