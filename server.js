@@ -182,25 +182,59 @@ async function handleApi(req, res) {
       const expenseRows = parseCSV(expenseCsv);
 
       let totalIncome = 0;
+      const allIncomes = [];
       for (let i = 1; i < incomeRows.length; i++) {
         const row = incomeRows[i];
+        if (!row[1]) continue;
         const date = parseCellDate(row[1]);
-        if (!date) continue;
+        const cash = cleanAmount(row[2]);
+        const qris = cleanAmount(row[3]);
         let amount = cleanAmount(row[4]);
-        if (!amount) amount = cleanAmount(row[2]) + cleanAmount(row[3]);
-        if (date >= range.start && date <= range.end) {
+        if (!amount) amount = cash + qris;
+        
+        const formattedDate = date ? date.toISOString().split('T')[0] : String(row[1] || '');
+        allIncomes.push({
+          id: String(row[0] || ('INC-' + i)),
+          tanggal: formattedDate,
+          total_cash: cash,
+          total_qris: qris,
+          total_pemasukan: amount,
+          keterangan: String(row[5] || ''),
+          created_by: String(row[6] || '')
+        });
+
+        if (date && date >= range.start && date <= range.end) {
           totalIncome += amount;
         }
       }
 
       let totalExpense = 0;
+      const allExpenses = [];
       for (let i = 1; i < expenseRows.length; i++) {
         const row = expenseRows[i];
+        if (!row[1]) continue;
         const date = parseCellDate(row[1]);
-        if (!date) continue;
+        const qty = cleanAmount(row[5]);
+        const harga = cleanAmount(row[7]);
         let amount = cleanAmount(row[8]);
-        if (!amount) amount = cleanAmount(row[5]) * cleanAmount(row[7]);
-        if (date >= range.start && date <= range.end) {
+        if (!amount) amount = qty * harga;
+
+        const formattedDate = date ? date.toISOString().split('T')[0] : String(row[1] || '');
+        allExpenses.push({
+          id: String(row[0] || ('EXP-' + i)),
+          tanggal: formattedDate,
+          jam: String(row[2] || ''),
+          nama_barang: String(row[3] || ''),
+          kategori: String(row[4] || ''),
+          qty: qty,
+          satuan: String(row[6] || ''),
+          harga_satuan: harga,
+          total_biaya: amount,
+          keterangan: String(row[9] || ''),
+          created_by: String(row[10] || '')
+        });
+
+        if (date && date >= range.start && date <= range.end) {
           totalExpense += amount;
         }
       }
@@ -212,7 +246,9 @@ async function handleApi(req, res) {
           period: period,
           income: totalIncome,
           expense: totalExpense,
-          profit: totalIncome - totalExpense
+          profit: totalIncome - totalExpense,
+          incomes: allIncomes,
+          expenses: allExpenses
         }
       }));
     }

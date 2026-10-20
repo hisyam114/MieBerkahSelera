@@ -37,8 +37,17 @@ if (Auth.isAdmin()) {
   `;
 }
 
+// Helper to get local date in YYYY-MM-DD format (avoids UTC timezone shift)
+function getLocalDateString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Set default date and time
-const today = new Date().toISOString().split('T')[0];
+const today = getLocalDateString();
 const now = new Date().toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
 document.getElementById('tanggal').value = today;
 document.getElementById('jam').value = now;

@@ -336,6 +336,7 @@ function handleGetDashboard(params) {
   
   // 1. Calculate directly from Pemasukan_Harian and Pengeluaran sheets
   let totalIncome = 0;
+  const allIncomes = [];
   if (incomeSheet) {
     const incomeData = incomeSheet.getDataRange().getValues();
     for (let i = 1; i < incomeData.length; i++) {
@@ -344,21 +345,35 @@ function handleGetDashboard(params) {
       if (!dateCell) continue;
       
       const rowDate = parseCellDate(dateCell, tz);
-      if (!rowDate) continue;
       
       // Amount from column E (total_pemasukan) or column C + column D
+      const cash = cleanAmount(row[2]);
+      const qris = cleanAmount(row[3]);
       let amount = cleanAmount(row[4]);
       if (!amount) {
-        amount = cleanAmount(row[2]) + cleanAmount(row[3]);
+        amount = cash + qris;
       }
       
-      if (rowDate >= startDate && rowDate <= endDate) {
+      const formattedDate = rowDate ? Utilities.formatDate(rowDate, 'UTC', 'yyyy-MM-dd') : String(dateCell);
+      
+      allIncomes.push({
+        id: String(row[0] || ('INC-' + i)),
+        tanggal: formattedDate,
+        total_cash: cash,
+        total_qris: qris,
+        total_pemasukan: amount,
+        keterangan: String(row[5] || ''),
+        created_by: String(row[6] || '')
+      });
+      
+      if (rowDate && rowDate >= startDate && rowDate <= endDate) {
         totalIncome += amount;
       }
     }
   }
   
   let totalExpense = 0;
+  const allExpenses = [];
   if (expenseSheet) {
     const expenseData = expenseSheet.getDataRange().getValues();
     for (let i = 1; i < expenseData.length; i++) {
@@ -367,15 +382,31 @@ function handleGetDashboard(params) {
       if (!dateCell) continue;
       
       const rowDate = parseCellDate(dateCell, tz);
-      if (!rowDate) continue;
       
-      // Amount from column I (total_biaya) or column F * column H
+      const qty = cleanAmount(row[5]);
+      const hargaSatuan = cleanAmount(row[7]);
       let amount = cleanAmount(row[8]);
       if (!amount) {
-        amount = cleanAmount(row[5]) * cleanAmount(row[7]);
+        amount = qty * hargaSatuan;
       }
       
-      if (rowDate >= startDate && rowDate <= endDate) {
+      const formattedDate = rowDate ? Utilities.formatDate(rowDate, 'UTC', 'yyyy-MM-dd') : String(dateCell);
+      
+      allExpenses.push({
+        id: String(row[0] || ('EXP-' + i)),
+        tanggal: formattedDate,
+        jam: String(row[2] || ''),
+        nama_barang: String(row[3] || ''),
+        kategori: String(row[4] || ''),
+        qty: qty,
+        satuan: String(row[6] || ''),
+        harga_satuan: hargaSatuan,
+        total_biaya: amount,
+        keterangan: String(row[9] || ''),
+        created_by: String(row[10] || '')
+      });
+      
+      if (rowDate && rowDate >= startDate && rowDate <= endDate) {
         totalExpense += amount;
       }
     }
@@ -396,7 +427,9 @@ function handleGetDashboard(params) {
     period: period,
     income: totalIncome,
     expense: totalExpense,
-    profit: profit
+    profit: profit,
+    incomes: allIncomes,
+    expenses: allExpenses
   });
 }
 
