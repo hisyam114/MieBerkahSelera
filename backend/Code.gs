@@ -40,6 +40,11 @@ const SHEET_NAMES = {
  */
 function doGet(e) {
   try {
+    // Handle CORS preflight
+    if (!e || !e.parameter) {
+      return createResponse(true, 'API is running');
+    }
+    
     const action = e.parameter.action;
     
     if (!action) {
@@ -367,7 +372,7 @@ function handleGetDashboard(params) {
 // ============================================================================
 
 /**
- * Creates a standardized JSON response
+ * Creates a standardized JSON response with CORS headers
  * @param {boolean} success - Whether the request was successful
  * @param {string} message - Response message
  * @param {Object} data - Optional data payload
@@ -385,7 +390,10 @@ function createResponse(success, message, data = null) {
   
   return ContentService
     .createTextOutput(JSON.stringify(response))
-    .setMimeType(ContentService.MimeType.JSON);
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader('Access-Control-Allow-Origin', '*')
+    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    .setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
 // ============================================================================
