@@ -321,95 +321,72 @@ function handleGetDashboard(params) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const incomeSheet = ss.getSheetByName(SHEET_NAMES.INCOME);
   const expenseSheet = ss.getSheetByName(SHEET_NAMES.EXPENSE);
+  const dashboardSheet = ss.getSheetByName(SHEET_NAMES.DASHBOARD);
   
-  // Get today's date in script timezone
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const day = today.getDate();
+  // Get spreadsheet timezone (defaults to Asia/Jakarta)
+  const tz = ss.getSpreadsheetTimeZone() || 'Asia/Jakarta';
   
-  let startDate, endDate;
-  
-  switch(period) {
-    case 'today':
-      startDate = new Date(year, month, day);
-      endDate = new Date(year, month, day, 23, 59, 59);
-      break;
-    case 'week':
-      startDate = new Date(year, month, day - 6); // 7 days including today
-      endDate = new Date(year, month, day, 23, 59, 59);
-      break;
-    case 'month':
-      startDate = new Date(year, month, 1);
-      endDate = new Date(year, month + 1, 0, 23, 59, 59);
-      break;
-    case 'year':
-      startDate = new Date(year, 0, 1);
-      endDate = new Date(year, 11, 31, 23, 59, 59);
-      break;
-    default:
-      return createResponse(false, 'Invalid period');
+  // Get date range based on period in the spreadsheet timezone
+  const dateRange = getPeriodDateRange(period, tz);
+  if (!dateRange) {
+    return createResponse(false, 'Invalid period');
   }
   
-  // Calculate income - sum ALL rows in date range
+  const { startDate, endDate } = dateRange;
+  
+  // 1. Calculate directly from Pemasukan_Harian and Pengeluaran sheets
   let totalIncome = 0;
-  const incomeData = incomeSheet.getDataRange().getValues();
-  
-  for (let i = 1; i < incomeData.length; i++) {
-    const row = incomeData[i];
-    const dateCell = row[1]; // Column B: tanggal
-    
-    // Skip empty rows
-    if (!dateCell) continue;
-    
-    // Get income amount from column E (total_pemasukan) or calculate from C+D
-    let amount = row[4]; // Column E
-    if (!amount || amount === '') {
-      // Fallback: calculate from cash + qris
-      const cash = Number(row[2]) || 0; // Column C
-      const qris = Number(row[3]) || 0; // Column D
-      amount = cash + qris;
-    }
-    
-    if (amount && amount !== 0) {
-      // Convert date to comparable format
-      let rowDate = new Date(dateCell);
+  if (incomeSheet) {
+    const incomeData = incomeSheet.getDataRange().getValues();
+    for (let i = 1; i < incomeData.length; i++) {
+      const row = incomeData[i];
+      const dateCell = row[1]; // Column B: tanggal
+      if (!dateCell) continue;
       
-      // Compare dates
+      const rowDate = parseCellDate(dateCell, tz);
+      if (!rowDate) continue;
+      
+      // Amount from column E (total_pemasukan) or column C + column D
+      let amount = cleanAmount(row[4]);
+      if (!amount) {
+        amount = cleanAmount(row[2]) + cleanAmount(row[3]);
+      }
+      
       if (rowDate >= startDate && rowDate <= endDate) {
-        totalIncome += Number(amount);
+        totalIncome += amount;
       }
     }
   }
   
-  // Calculate expense - sum ALL rows in date range
   let totalExpense = 0;
-  const expenseData = expenseSheet.getDataRange().getValues();
-  
-  for (let i = 1; i < expenseData.length; i++) {
-    const row = expenseData[i];
-    const dateCell = row[1]; // Column B: tanggal
-    
-    // Skip empty rows
-    if (!dateCell) continue;
-    
-    // Get expense amount from column I (total_biaya) or calculate from F*H
-    let amount = row[8]; // Column I
-    if (!amount || amount === '') {
-      // Fallback: calculate from qty * price
-      const qty = Number(row[5]) || 0; // Column F
-      const price = Number(row[7]) || 0; // Column H
-      amount = qty * price;
-    }
-    
-    if (amount && amount !== 0) {
-      // Convert date to comparable format
-      let rowDate = new Date(dateCell);
+  if (expenseSheet) {
+    const expenseData = expenseSheet.getDataRange().getValues();
+    for (let i = 1; i < expenseData.length; i++) {
+      const row = expenseData[i];
+      const dateCell = row[1]; // Column B: tanggal
+      if (!dateCell) continue;
       
-      // Compare dates
-      if (rowDate >= startDate && rowDate <= endDate) {
-        totalExpense += Number(amount);
+      const rowDate = parseCellDate(dateCell, tz);
+      if (!rowDate) continue;
+      
+      // Amount from column I (total_biaya) or column F * column H
+      let amount = cleanAmount(row[8]);
+      if (!amount) {
+        amount = cleanAmount(row[5]) * cleanAmount(row[7]);
       }
+      
+      if (rowDate >= startDate && rowDate <= endDate) {
+        totalExpense += amount;
+      }
+    }
+  }
+  
+  // 2. Fallback: If both direct calculations are 0, check Dashboard sheet formulas/values
+  if (totalIncome === 0 && totalExpense === 0 && dashboardSheet) {
+    const fallbackData = readFromDashboardSheet(dashboardSheet, period);
+    if (fallbackData) {
+      totalIncome = fallbackData.income;
+      totalExpense = fallbackData.expense;
     }
   }
   
@@ -423,12 +400,165 @@ function handleGetDashboard(params) {
   });
 }
 
+/**
+ * Calculates start and end Date for a given period in specified timezone
+ */
+function getPeriodDateRange(period, tz) {
+  const now = new Date();
+  const todayYmd = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const parts = todayYmd.split('-');
+  const curYear = parseInt(parts[0], 10);
+  const curMonth = parseInt(parts[1], 10) - 1; // 0-based
+  const curDay = parseInt(parts[2], 10);
+  
+  const todayStart = new Date(Date.UTC(curYear, curMonth, curDay, 0, 0, 0));
+  const todayEnd = new Date(Date.UTC(curYear, curMonth, curDay, 23, 59, 59, 999));
+  
+  switch(period) {
+    case 'today':
+      return { startDate: todayStart, endDate: todayEnd };
+    case 'week':
+      return {
+        startDate: new Date(Date.UTC(curYear, curMonth, curDay - 6, 0, 0, 0)),
+        endDate: todayEnd
+      };
+    case 'month':
+      return {
+        startDate: new Date(Date.UTC(curYear, curMonth, 1, 0, 0, 0)),
+        endDate: new Date(Date.UTC(curYear, curMonth + 1, 0, 23, 59, 59, 999))
+      };
+    case 'year':
+      return {
+        startDate: new Date(Date.UTC(curYear, 0, 1, 0, 0, 0)),
+        endDate: new Date(Date.UTC(curYear, 11, 31, 23, 59, 59, 999))
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Parses any date format (Date object, DD/MM/YYYY, YYYY-MM-DD, etc.) into UTC normalized Date
+ */
+function parseCellDate(dateVal, tz) {
+  if (!dateVal) return null;
+  
+  if (dateVal instanceof Date) {
+    if (isNaN(dateVal.getTime())) return null;
+    try {
+      const ymd = Utilities.formatDate(dateVal, tz, 'yyyy-MM-dd');
+      const parts = ymd.split('-');
+      return new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+    } catch (e) {
+      return new Date(Date.UTC(dateVal.getFullYear(), dateVal.getMonth(), dateVal.getDate()));
+    }
+  }
+  
+  const str = String(dateVal).trim();
+  if (!str) return null;
+  
+  // DD/MM/YYYY or DD-MM-YYYY
+  const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (dmy) {
+    return new Date(Date.UTC(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10)));
+  }
+  
+  // YYYY-MM-DD or YYYY/MM/DD
+  const ymd = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (ymd) {
+    return new Date(Date.UTC(parseInt(ymd[1], 10), parseInt(ymd[2], 10) - 1, parseInt(ymd[3], 10)));
+  }
+  
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  }
+  
+  return null;
+}
+
+/**
+ * Cleans numerical value or Indonesian formatted currency string (e.g. "Rp1.270.000")
+ */
+function cleanAmount(val) {
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (!val) return 0;
+  
+  let str = String(val).trim();
+  str = str.replace(/^[^\d\-]+/, '').trim();
+  
+  if (str.includes('.') && str.includes(',')) {
+    str = str.replace(/\./g, '').replace(',', '.');
+  } else if (str.includes('.')) {
+    const dotParts = str.split('.');
+    if (dotParts.length > 2 || (dotParts.length === 2 && dotParts[1].length === 3)) {
+      str = str.replace(/\./g, '');
+    }
+  } else if (str.includes(',')) {
+    str = str.replace(',', '.');
+  }
+  
+  const cleaned = str.replace(/[^0-9\-\.]/g, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
+
+/**
+ * Fallback parser to read from Dashboard sheet directly
+ */
+function readFromDashboardSheet(dashboardSheet, period) {
+  try {
+    const data = dashboardSheet.getDataRange().getValues();
+    const map = {};
+    
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const label = String(row[0] || '').toLowerCase().trim();
+      // Value can be in Column B (index 1) or Column C (index 2)
+      const val = cleanAmount(row[1]) || cleanAmount(row[2]) || 0;
+      if (label) {
+        map[label] = val;
+      }
+    }
+    
+    const periodKeywords = {
+      today: 'hari ini',
+      week: 'minggu ini',
+      month: 'bulan ini',
+      year: 'tahun ini'
+    };
+    
+    const kw = periodKeywords[period];
+    if (!kw) return null;
+    
+    let income = 0;
+    let expense = 0;
+    
+    for (const [key, val] of Object.entries(map)) {
+      if (key.includes(kw)) {
+        if (key.includes('pemasukan') || key.includes('income')) {
+          income = val;
+        } else if (key.includes('pengeluaran') || key.includes('expense')) {
+          expense = val;
+        }
+      }
+    }
+    
+    if (income > 0 || expense > 0) {
+      return { income: income, expense: expense };
+    }
+  } catch (e) {
+    Logger.log('readFromDashboardSheet error: ' + e.message);
+  }
+  return null;
+}
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 
 /**
- * Creates a standardized JSON response with CORS headers
+ * Creates a standardized JSON response
  * @param {boolean} success - Whether the request was successful
  * @param {string} message - Response message
  * @param {Object} data - Optional data payload
@@ -446,10 +576,7 @@ function createResponse(success, message, data = null) {
   
   return ContentService
     .createTextOutput(JSON.stringify(response))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 // ============================================================================
@@ -471,13 +598,17 @@ function testAPI() {
   const itemsResult = handleGetMasterItems();
   Logger.log('Master Items Response: ' + itemsResult.getContent());
   
-  Logger.log('\n3. Testing Dashboard...');
-  const dashboardResult = handleGetDashboard({ period: 'today' });
-  Logger.log('Dashboard Response: ' + dashboardResult.getContent());
+  Logger.log('\n3. Testing Dashboard (Today)...');
+  const dashboardToday = handleGetDashboard({ period: 'today' });
+  Logger.log('Today Response: ' + dashboardToday.getContent());
+  
+  Logger.log('\n4. Testing Dashboard (Month)...');
+  const dashboardMonth = handleGetDashboard({ period: 'month' });
+  Logger.log('Month Response: ' + dashboardMonth.getContent());
   
   Logger.log('\n=== ALL TESTS COMPLETED ===');
-  Logger.log('If you see "success":true for all tests, your API is working!');
-  Logger.log('Next step: Deploy as Web App');
+  Logger.log('If you see correct non-zero income/expense for today/month, API is working perfectly!');
+  Logger.log('Next step: Deploy as Web App -> New version');
 }
 
 /**

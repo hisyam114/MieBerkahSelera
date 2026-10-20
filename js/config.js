@@ -14,9 +14,16 @@
 
 
 
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
 const CONFIG = {
-  // Google Apps Script Web App URL - WORKING ✅
-  API_URL: 'https://script.google.com/macros/s/AKfycbxbYy0hIC0Z59wc0E7zjB2CyHLH8APjAWdwqeOyYVM8lLCHhPRJ-dsCzxVUJ48ZsxpU/exec',
+  // Automatically uses local dev server API when on localhost, and Google Apps Script Web App in production/GitHub Pages
+  API_URL: isLocal 
+    ? '/api' 
+    : 'https://script.google.com/macros/s/AKfycbxbYy0hIC0Z59wc0E7zjB2CyHLH8APjAWdwqeOyYVM8lLCHhPRJ-dsCzxVUJ48ZsxpU/exec',
+
+  // Google Apps Script Web App URL
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxbYy0hIC0Z59wc0E7zjB2CyHLH8APjAWdwqeOyYVM8lLCHhPRJ-dsCzxVUJ48ZsxpU/exec',
   
   // App Settings
   APP_NAME: 'Mie Ayam Financial Recording',
