@@ -4,6 +4,11 @@
  */
 
 const API = {
+  // Simple in-memory cache for GET requests
+  _cache: {},
+  _cacheTimestamps: {},
+  _cacheDuration: 30000, // 30 seconds
+
   /**
    * Authenticates user with username and PIN
    * @param {string} username 
@@ -13,7 +18,7 @@ const API = {
   async login(username, pin) {
     const timestamp = new Date().getTime();
     const url = `${CONFIG.API_URL}?action=login&username=${encodeURIComponent(username)}&pin=${encodeURIComponent(pin)}&_t=${timestamp}`;
-    return await this._fetch(url);
+    return await this._fetch(url, false); // no cache for login
   },
 
   /**
@@ -21,10 +26,17 @@ const API = {
    * @returns {Promise<Array>} Array of items
    */
   async getMasterItems() {
+    const cacheKey = 'master-items';
+    const cachedData = this._getFromCache(cacheKey);
+    if (cachedData) return cachedData;
+
     const timestamp = new Date().getTime();
     const url = `${CONFIG.API_URL}?action=master-items&_t=${timestamp}`;
     const response = await this._fetch(url);
-    return response.items || [];
+    const items = response.items || [];
+    
+    this._setCache(cacheKey, items);
+    return items;
   },
 
   /**
@@ -36,7 +48,7 @@ const API = {
     // Add cache busting parameter
     const timestamp = new Date().getTime();
     const url = `${CONFIG.API_URL}?action=dashboard&period=${period}&_t=${timestamp}`;
-    return await this._fetch(url);
+    return await this._fetch(url, false); // Don't cache dashboard data
   },
 
   /**
@@ -45,6 +57,7 @@ const API = {
    * @returns {Promise<Object>} Response data
    */
   async submitIncome(incomeData) {
+    this._clearCache(); // Clear cache after submission
     return await this._post('income', incomeData);
   },
 
@@ -54,15 +67,56 @@ const API = {
    * @returns {Promise<Object>} Response data
    */
   async submitExpense(expenseData) {
+    this._clearCache(); // Clear cache after submission
     return await this._post('expense', expenseData);
+  },
+
+  /**
+   * Get data from cache if still fresh
+   * @param {string} key 
+   * @returns {any|null}
+   */
+  _getFromCache(key) {
+    const cached = this._cache[key];
+    const timestamp = this._cacheTimestamps[key];
+    
+    if (!cached || !timestamp) return null;
+    
+    const age = Date.now() - timestamp;
+    if (age > this._cacheDuration) {
+      delete this._cache[key];
+      delete this._cacheTimestamps[key];
+      return null;
+    }
+    
+    return cached;
+  },
+
+  /**
+   * Set data in cache
+   * @param {string} key 
+   * @param {any} data 
+   */
+  _setCache(key, data) {
+    this._cache[key] = data;
+    this._cacheTimestamps[key] = Date.now();
+  },
+
+  /**
+   * Clear all cache
+   */
+  _clearCache() {
+    this._cache = {};
+    this._cacheTimestamps = {};
   },
 
   /**
    * Generic GET request handler
    * @param {string} url 
+   * @param {boolean} useCache 
    * @returns {Promise<Object>}
    */
-  async _fetch(url) {
+  async _fetch(url, useCache = true) {
     try {
       // Simple GET without custom headers to avoid CORS preflight
       const response = await fetch(url, {

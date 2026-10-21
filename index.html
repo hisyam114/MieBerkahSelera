@@ -89,9 +89,15 @@
   <script src="js/auth.js"></script>
 
   <script>
-    // Check if already logged in
+    // Check if already logged in with cached session
     if (Auth.isAuthenticated()) {
-      Auth.redirectByRole();
+      // Redirect immediately without additional checks
+      const user = Auth.getCurrentUser();
+      if (user && user.role === 'Admin') {
+        window.location.href = 'dashboard.html';
+      } else {
+        window.location.href = 'income.html';
+      }
     }
 
     // Handle login form submission
@@ -108,32 +114,39 @@
       // Hide previous errors
       errorMessage.classList.add('hidden');
 
-      // Validate PIN format
+      // Validate PIN format client-side first (faster feedback)
       if (!/^\d{6}$/.test(pin)) {
         errorText.textContent = 'PIN harus 6 digit angka';
         errorMessage.classList.remove('hidden');
         return;
       }
 
-      // Show loading
+      // Show loading immediately
       loadingOverlay.classList.remove('hidden');
       loginButton.disabled = true;
+      loginButton.textContent = 'Memproses...';
 
       try {
+        // Login with optimized API call
         await Auth.login(username, pin);
 
-        // Success - redirect based on role
-        Auth.redirectByRole();
+        // Success - redirect immediately based on role
+        const user = Auth.getCurrentUser();
+        if (user && user.role === 'Admin') {
+          window.location.href = 'dashboard.html';
+        } else {
+          window.location.href = 'income.html';
+        }
 
       } catch (error) {
         // Show error
         errorText.textContent = error.message || 'Login gagal. Periksa username dan PIN Anda.';
         errorMessage.classList.remove('hidden');
-
-      } finally {
-        // Hide loading
-        loadingOverlay.classList.add('hidden');
+        
+        // Reset button
+        loginButton.textContent = 'Masuk';
         loginButton.disabled = false;
+        loadingOverlay.classList.add('hidden');
       }
     });
 

@@ -25,9 +25,24 @@ let searchQuery = '';
 // Chart reference
 let financialChart = null;
 
-// Auto-refresh interval reference (5 seconds)
+// Auto-refresh interval reference (30 seconds instead of 5)
 let refreshInterval = null;
 let isInitialLoad = true;
+
+// Cache for dashboard data by period to avoid unnecessary API calls
+let dashboardCache = {
+  today: null,
+  week: null,
+  month: null,
+  year: null
+};
+let lastFetchTime = {
+  today: 0,
+  week: 0,
+  month: 0,
+  year: 0
+};
+const CACHE_DURATION = 30000; // 30 seconds cache
 
 // Helper: Format Currency
 const formatCurrency = (value) => {
@@ -65,8 +80,8 @@ const getCategoryBadgeClass = (category) => {
   return 'bg-gray-100 text-gray-700 border border-gray-200';
 };
 
-// Load dashboard data with cache busting
-async function loadDashboard(period = currentPeriod) {
+// Load dashboard data with smart caching
+async function loadDashboard(period = currentPeriod, forceRefresh = false) {
   const loadingOverlay = document.getElementById('loadingOverlay');
   const incomeValue = document.getElementById('incomeValue');
   const expenseValue = document.getElementById('expenseValue');
@@ -79,8 +94,21 @@ async function loadDashboard(period = currentPeriod) {
       loadingOverlay.classList.remove('hidden');
     }
     
-    // Fetch data from API with cache busting
-    const data = await API.getDashboard(period);
+    let data;
+    const now = Date.now();
+    const cacheAge = now - lastFetchTime[period];
+    
+    // Use cache if available and fresh, unless force refresh
+    if (!forceRefresh && dashboardCache[period] && cacheAge < CACHE_DURATION) {
+      data = dashboardCache[period];
+    } else {
+      // Fetch data from API
+      data = await API.getDashboard(period);
+      
+      // Update cache
+      dashboardCache[period] = data;
+      lastFetchTime[period] = now;
+    }
     
     // Update KPI values
     if (incomeValue) incomeValue.textContent = formatCurrency(data.income);
@@ -157,9 +185,11 @@ function renderFinancialChart(period, data) {
   const chartConfig = getChartConfig(period, data);
 
   if (financialChart) {
-    financialChart.data = chartConfig.data;
+    // Update chart data smoothly without full re-render
+    financialChart.data.labels = chartConfig.data.labels;
+    financialChart.data.datasets = chartConfig.data.datasets;
     financialChart.options = chartConfig.options;
-    financialChart.update();
+    financialChart.update('none'); // 'none' mode = no animation, instant update
   } else {
     financialChart = new Chart(ctx, chartConfig);
   }
@@ -722,10 +752,10 @@ if (refreshInterval) {
   clearInterval(refreshInterval);
 }
 
-// Auto-refresh every 5 seconds (as requested)
+// Auto-refresh every 30 seconds (reduced from 5 seconds to prevent awful flickering)
 refreshInterval = setInterval(() => {
-  loadDashboard(currentPeriod);
-}, 5000);
+  loadDashboard(currentPeriod, true); // force refresh on auto-refresh
+}, 30000);
 
 // Clear interval when page is hidden/closed, resume when active
 document.addEventListener('visibilitychange', () => {
@@ -738,9 +768,9 @@ document.addEventListener('visibilitychange', () => {
       clearInterval(refreshInterval);
     }
     refreshInterval = setInterval(() => {
-      loadDashboard(currentPeriod);
-    }, 5000);
+      loadDashboard(currentPeriod, true);
+    }, 30000);
     // Refresh immediately when returning to tab
-    loadDashboard(currentPeriod);
+    loadDashboard(currentPeriod, true);
   }
 });

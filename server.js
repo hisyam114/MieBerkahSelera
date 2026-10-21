@@ -191,7 +191,7 @@ async function handleApi(req, res) {
         const qris = cleanAmount(row[3]);
         let amount = cleanAmount(row[4]);
         if (!amount) amount = cash + qris;
-        
+
         const formattedDate = date ? date.toISOString().split('T')[0] : String(row[1] || '');
         allIncomes.push({
           id: String(row[0] || ('INC-' + i)),
